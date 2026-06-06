@@ -1,0 +1,160 @@
+/* ==========================================================
+   ESTILOS COMUNES — Sistema de entradas Graduación
+   ========================================================== */
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --c-bg:        #0f172a;
+  --c-card:      #1e293b;
+  --c-text:      #f1f5f9;
+  --c-muted:     #94a3b8;
+  --c-primary:   #3b82f6;
+  --c-primary-h: #2563eb;
+  --c-success:   #10b981;
+  --c-danger:    #ef4444;
+  --c-warning:   #f59e0b;
+  --c-border:    #334155;
+}
+
+html, body {
+  background: var(--c-bg);
+  color: var(--c-text);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  min-height: 100vh;
+  line-height: 1.5;
+  -webkit-tap-highlight-color: transparent;
+}
+
+a { color: var(--c-primary); text-decoration: none; }
+a:hover { text-decoration: underline; }
+
+.container {
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 1rem;
+}
+
+.card {
+  background: var(--c-card);
+  border: 1px solid var(--c-border);
+  border-radius: 12px;
+  padding: 1.5rem;
+  margin-bottom: 1rem;
+}
+
+h1 { font-size: 1.5rem; margin-bottom: 0.5rem; }
+h2 { font-size: 1.15rem; margin-bottom: 0.75rem; color: var(--c-muted); font-weight: 500; }
+
+/* ----- Botones ----- */
+.btn {
+  display: inline-block;
+  padding: 0.75rem 1.25rem;
+  border: none;
+  border-radius: 8px;
+  background: var(--c-primary);
+  color: white;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s ease;
+  text-align: center;
+}
+.btn:hover { background: var(--c-primary-h); }
+.btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.btn-block { width: 100%; }
+.btn-secondary { background: #475569; }
+.btn-secondary:hover { background: #64748b; }
+.btn-danger { background: var(--c-danger); }
+.btn-danger:hover { background: #dc2626; }
+.btn-success { background: var(--c-success); }
+.btn-success:hover { background: #059669; }
+
+/* ----- Formularios ----- */
+label { display: block; margin-bottom: 0.4rem; color: var(--c-muted); font-size: 0.9rem; }
+input[type="text"], input[type="email"], input[type="password"], input[type="number"] {
+  width: 100%;
+  padding: 0.7rem;
+  border: 1px solid var(--c-border);
+  border-radius: 8px;
+  background: #0f172a;
+  color: var(--c-text);
+  font-size: 1rem;
+  margin-bottom: 0.75rem;
+}
+input:focus { outline: 2px solid var(--c-primary); }
+
+/* ----- Tabla / lista ----- */
+.list { display: flex; flex-direction: column; gap: 0.5rem; }
+.list-item {
+  background: #0f172a;
+  padding: 0.75rem;
+  border-radius: 8px;
+  border: 1px solid var(--c-border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+.list-item .codigo { font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace; }
+.badge {
+  padding: 0.2rem 0.6rem;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+.badge-ok    { background: rgba(16,185,129,0.18); color: #34d399; }
+.badge-used  { background: rgba(239,68,68,0.18);  color: #f87171; }
+
+/* ----- Header ----- */
+.topbar {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 1rem; background: var(--c-card); border-bottom: 1px solid var(--c-border);
+}
+.topbar h1 { font-size: 1.1rem; }
+.topbar .user { color: var(--c-muted); font-size: 0.85rem; }
+
+/* ----- Resultado del escaneo ----- */
+.result {
+  padding: 2rem 1rem;
+  border-radius: 12px;
+  text-align: center;
+  margin-top: 1rem;
+  font-size: 1.25rem;
+  font-weight: 700;
+  min-height: 140px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+}
+.result.ok      { background: rgba(16,185,129,0.18); color: #34d399; border: 2px solid #10b981; }
+.result.dup     { background: rgba(239,68,68,0.18);  color: #f87171; border: 2px solid #ef4444; }
+.result.invalid { background: rgba(245,158,11,0.18); color: #fbbf24; border: 2px solid #f59e0b; }
+.result.idle    { background: var(--c-card); color: var(--c-muted); border: 2px dashed var(--c-border); font-size: 1rem; font-weight: 400; }
+.result .icono { font-size: 3rem; line-height: 1; }
+.result .detalle { font-size: 0.9rem; font-weight: 400; color: var(--c-muted); }
+
+/* ----- Estadísticas ----- */
+.stats {
+  display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.5rem; margin-bottom: 1rem;
+}
+.stat { background: var(--c-card); padding: 0.75rem; border-radius: 8px; text-align: center; border: 1px solid var(--c-border); }
+.stat .num { font-size: 1.75rem; font-weight: 700; }
+.stat .lbl { font-size: 0.8rem; color: var(--c-muted); }
+
+#reader { width: 100%; max-width: 480px; margin: 0 auto; }
+#reader video { border-radius: 8px; }
+
+.toolbar { display: flex; gap: 0.5rem; flex-wrap: wrap; margin-bottom: 1rem; }
+.toolbar > * { flex: 1 1 auto; }
+
+.hidden { display: none !important; }
+.muted { color: var(--c-muted); font-size: 0.85rem; }
+
+@media (max-width: 480px) {
+  .container { padding: 0.5rem; }
+  .card { padding: 1rem; }
+}

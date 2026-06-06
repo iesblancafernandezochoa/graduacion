@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <title>Entradas Graduación</title>
+  <link rel="stylesheet" href="style.css" />
+  <meta name="theme-color" content="#0f172a" />
+</head>
+<body>
+  <div class="container" style="padding-top: 3rem;">
+    <div class="card" style="text-align:center;">
+      <h1 id="titulo">Entradas Graduación</h1>
+      <p class="muted" style="margin: 0.5rem 0 1.5rem;">Sistema de validación con QR</p>
+
+      <div style="display:flex; flex-direction:column; gap:0.75rem;">
+        <a class="btn btn-block" href="scan.html">📷 Escanear entradas</a>
+        <a class="btn btn-block btn-secondary" href="admin.html">⚙️ Panel de administración</a>
+      </div>
+    </div>
+
+    <p class="muted" style="text-align:center; margin-top: 2rem;">
+      Para empezar, configura tu proyecto Firebase en <code>config.js</code> y consulta el
+      <a href="README.md">README</a>.
+    </p>
+  </div>
+
+  <script src="config.js"></script>
+  <script>
+    if (window.NOMBRE_EVENTO) {
+      document.getElementById('titulo').textContent = window.NOMBRE_EVENTO;
+      document.title = window.NOMBRE_EVENTO;
+    }
+  </script>
+</body>
+</html>

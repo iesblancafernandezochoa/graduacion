@@ -1,0 +1,39 @@
+// =============================================================
+//  Reglas de seguridad Firestore
+//  Pega esto en: Consola Firebase → Firestore Database → Reglas
+// =============================================================
+//
+//  Política:
+//   - Cualquier usuario autenticado (admin o personal de puerta)
+//     puede leer entradas y marcarlas como usadas.
+//   - SOLO el usuario admin (identificado por email) puede crear
+//     o borrar entradas.
+//   - Quien no esté logueado no ve nada.
+//
+//  Para añadir más administradores, ampliar la función esAdmin().
+//  Para cambiar el email admin, edítalo en estas reglas Y en
+//  config.js (window.ADMIN_EMAIL).
+//
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Solo este email tiene permisos de admin
+    function esAdmin() {
+      return request.auth != null
+        && request.auth.token.email == 'admin@graduacion.es';
+    }
+
+    match /entradas/{codigo} {
+      // Cualquier usuario logueado (admin o personal) puede leer y marcar usada
+      allow read, update: if request.auth != null;
+      // Solo el admin puede crear nuevas entradas o borrarlas
+      allow create, delete: if esAdmin();
+    }
+
+    // Bloquea cualquier otra colección por defecto
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

@@ -1,0 +1,285 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <title>Escáner · Entradas Graduación</title>
+  <link rel="stylesheet" href="style.css" />
+  <meta name="theme-color" content="#0f172a" />
+</head>
+<body>
+
+<!-- ======== LOGIN ======== -->
+<section id="vista-login" class="container" style="padding-top: 3rem;">
+  <div class="card">
+    <h1>Acceso al escáner</h1>
+    <p class="muted" style="margin-bottom:1rem;">Necesitas iniciar sesión una sola vez en este móvil.</p>
+    <form id="form-login">
+      <label for="email">Correo electrónico</label>
+      <input id="email" type="email" autocomplete="username" required />
+      <label for="password">Contraseña</label>
+      <input id="password" type="password" autocomplete="current-password" required />
+      <button class="btn btn-block" type="submit">Entrar</button>
+      <p id="login-error" class="muted" style="color:#f87171; margin-top:0.75rem;"></p>
+    </form>
+    <p class="muted" style="margin-top:1rem; text-align:center;">
+      <a href="index.html">← Volver</a>
+    </p>
+  </div>
+</section>
+
+<!-- ======== ESCÁNER ======== -->
+<section id="vista-scan" class="hidden">
+  <header class="topbar">
+    <h1 id="evento-titulo">Escáner</h1>
+    <span><span id="user-email" class="user"></span> · <a href="#" id="btn-logout">Salir</a></span>
+  </header>
+
+  <div class="container">
+
+    <div class="stats">
+      <div class="stat"><div class="num" id="stat-disponibles" style="color:#34d399;">–</div><div class="lbl">Disponibles</div></div>
+      <div class="stat"><div class="num" id="stat-usadas" style="color:#f87171;">–</div><div class="lbl">Validadas</div></div>
+      <div class="stat"><div class="num" id="stat-total">–</div><div class="lbl">Total</div></div>
+    </div>
+
+    <div class="card">
+      <div id="reader"></div>
+      <div class="toolbar" style="margin-top:0.75rem;">
+        <button id="btn-toggle" class="btn">⏸ Pausar</button>
+        <button id="btn-camara" class="btn btn-secondary">🔄 Cambiar cámara</button>
+      </div>
+    </div>
+
+    <div id="resultado" class="result idle">
+      <div class="icono">📷</div>
+      <div>Apunta al QR de la entrada…</div>
+    </div>
+
+    <div class="card">
+      <h2>Últimos escaneos</h2>
+      <div id="historial" class="list"></div>
+    </div>
+
+  </div>
+</section>
+
+<script src="config.js"></script>
+<!-- Lector de QR (cdnjs porque unpkg da problemas en algunas redes) -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html5-qrcode/2.3.8/html5-qrcode.min.js"></script>
+
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+  import {
+    getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut
+  } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+  import {
+    getFirestore, collection, doc, getDoc, updateDoc, onSnapshot, query
+  } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
+  const app  = initializeApp(window.firebaseConfig);
+  const auth = getAuth(app);
+  const db   = getFirestore(app);
+  const col  = collection(db, "entradas");
+
+  const $ = (id) => document.getElementById(id);
+  const show = (el) => el.classList.remove('hidden');
+  const hide = (el) => el.classList.add('hidden');
+
+  if (window.NOMBRE_EVENTO) $("evento-titulo").textContent = window.NOMBRE_EVENTO;
+
+  // ----------- Login -----------
+  $("form-login").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    $("login-error").textContent = "";
+    try {
+      await signInWithEmailAndPassword(auth, $("email").value.trim(), $("password").value);
+    } catch (err) {
+      $("login-error").textContent = "Credenciales incorrectas.";
+      console.error(err);
+    }
+  });
+
+  $("btn-logout").addEventListener("click", async (e) => {
+    e.preventDefault();
+    if (scanner) { try { await scanner.stop(); } catch(_){} }
+    await signOut(auth);
+  });
+
+  let scanner = null;
+  let camaras = [];
+  let camaraIdx = 0;
+  let pausado = false;
+  let ultimoCodigo = null;
+  let ultimoTs = 0;
+  const COOLDOWN_MS = 2000; // evita re-leer el mismo QR enseguida
+
+  onAuthStateChanged(auth, async (user) => {
+    if (user) {
+      hide($("vista-login"));
+      show($("vista-scan"));
+      $("user-email").textContent = user.email;
+      iniciarStatsListener();
+      await iniciarEscaner();
+    } else {
+      hide($("vista-scan"));
+      show($("vista-login"));
+    }
+  });
+
+  // ----------- Stats en vivo -----------
+  function iniciarStatsListener() {
+    onSnapshot(query(col), (snap) => {
+      let total = 0, usadas = 0;
+      snap.forEach(d => { total++; if (d.data().usada) usadas++; });
+      $("stat-total").textContent = total;
+      $("stat-usadas").textContent = usadas;
+      $("stat-disponibles").textContent = total - usadas;
+    });
+  }
+
+  // ----------- Cámara -----------
+  async function iniciarEscaner() {
+    try {
+      camaras = await Html5Qrcode.getCameras();
+      if (!camaras.length) {
+        mostrarError("No se detecta ninguna cámara en este dispositivo.");
+        return;
+      }
+      // Preferir cámara trasera si la hay
+      const trasera = camaras.findIndex(c => /back|rear|trasera|environment/i.test(c.label));
+      camaraIdx = trasera >= 0 ? trasera : 0;
+      scanner = new Html5Qrcode("reader");
+      await arrancarCamara();
+    } catch (err) {
+      mostrarError("No se pudo acceder a la cámara: " + err.message);
+      console.error(err);
+    }
+  }
+
+  async function arrancarCamara() {
+    const config = {
+      fps: 10,
+      qrbox: { width: 250, height: 250 },
+      aspectRatio: 1.0
+    };
+    await scanner.start(camaras[camaraIdx].id, config, onScan, () => {});
+  }
+
+  $("btn-camara").addEventListener("click", async () => {
+    if (!scanner || camaras.length < 2) return;
+    try {
+      await scanner.stop();
+      camaraIdx = (camaraIdx + 1) % camaras.length;
+      await arrancarCamara();
+    } catch (err) { console.error(err); }
+  });
+
+  $("btn-toggle").addEventListener("click", async () => {
+    if (!scanner) return;
+    pausado = !pausado;
+    if (pausado) {
+      try { await scanner.pause(true); } catch(_){}
+      $("btn-toggle").textContent = "▶ Reanudar";
+    } else {
+      try { await scanner.resume(); } catch(_){}
+      $("btn-toggle").textContent = "⏸ Pausar";
+    }
+  });
+
+  // ----------- Lógica al leer un QR -----------
+  async function onScan(decodedText) {
+    const codigo = (decodedText || "").trim();
+    const ahora = Date.now();
+    if (codigo === ultimoCodigo && ahora - ultimoTs < COOLDOWN_MS) return;
+    ultimoCodigo = codigo;
+    ultimoTs = ahora;
+
+    if (!codigo) return;
+
+    try {
+      const ref = doc(col, codigo);
+      const snap = await getDoc(ref);
+
+      if (!snap.exists()) {
+        mostrarResultado("invalid", "✗", "Entrada NO válida", `Código: ${codigo}`);
+        return;
+      }
+
+      const data = snap.data();
+      if (data.usada) {
+        const cuando = data.usadaEn ? new Date(data.usadaEn).toLocaleTimeString('es-ES') : "antes";
+        mostrarResultado("dup", "⚠", "Entrada YA USADA", `${codigo} · validada a las ${cuando}`);
+        return;
+      }
+
+      // Marcar como usada
+      await updateDoc(ref, {
+        usada: true,
+        usadaEn: new Date().toISOString()
+      });
+      mostrarResultado("ok", "✓", "Entrada VÁLIDA", codigo);
+    } catch (err) {
+      mostrarResultado("invalid", "!", "Error", err.message);
+      console.error(err);
+    }
+  }
+
+  // ----------- UI resultado / historial -----------
+  function mostrarResultado(tipo, icono, titulo, detalle) {
+    const el = $("resultado");
+    el.className = "result " + tipo;
+    el.innerHTML = `
+      <div class="icono">${icono}</div>
+      <div>${titulo}</div>
+      <div class="detalle">${detalle}</div>
+    `;
+    // Vibración (si el navegador lo permite)
+    if (navigator.vibrate) {
+      navigator.vibrate(tipo === "ok" ? 100 : [60, 60, 60]);
+    }
+    // Beep simple con WebAudio
+    sonar(tipo);
+    // Historial
+    addHistorial(tipo, titulo, detalle);
+  }
+
+  function mostrarError(msg) {
+    const el = $("resultado");
+    el.className = "result invalid";
+    el.innerHTML = `<div class="icono">!</div><div>Error</div><div class="detalle">${msg}</div>`;
+  }
+
+  const historial = [];
+  function addHistorial(tipo, titulo, detalle) {
+    historial.unshift({ tipo, titulo, detalle, hora: new Date().toLocaleTimeString('es-ES') });
+    if (historial.length > 15) historial.length = 15;
+    $("historial").innerHTML = historial.map(h => `
+      <div class="list-item">
+        <span class="codigo">${h.detalle}</span>
+        <span class="badge ${h.tipo === 'ok' ? 'badge-ok' : 'badge-used'}">${h.titulo}</span>
+        <span class="muted" style="font-size:0.8rem;">${h.hora}</span>
+      </div>
+    `).join("");
+  }
+
+  // ----------- Sonido -----------
+  let audioCtx = null;
+  function sonar(tipo) {
+    try {
+      if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      const o = audioCtx.createOscillator();
+      const g = audioCtx.createGain();
+      o.connect(g); g.connect(audioCtx.destination);
+      o.type = "sine";
+      if (tipo === "ok")        { o.frequency.value = 880; g.gain.value = 0.15; }
+      else if (tipo === "dup")  { o.frequency.value = 200; g.gain.value = 0.2;  }
+      else                       { o.frequency.value = 300; g.gain.value = 0.18; }
+      o.start();
+      setTimeout(() => { o.stop(); }, tipo === "ok" ? 150 : 400);
+    } catch (_) {}
+  }
+</script>
+
+</body>
+</html>
