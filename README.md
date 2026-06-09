@@ -39,11 +39,91 @@ graduacion/
 ├── index.html        → Página de inicio (elige admin o escanear)
 ├── admin.html        → Panel de administración
 ├── scan.html         → Escáner para móvil
-├── config.js         → Configuración Firebase (tu firebaseConfig aquí)
+├── config.js         → Configuración Firebase + nombre del evento
 ├── style.css         → Estilos compartidos
+├── blancalogo.png    → Logo del instituto (aparece en web y en las entradas PDF)
 ├── firestore.rules   → Reglas de seguridad para pegar en la consola
 └── README.md         → Este archivo
 ```
+
+---
+
+## 🎨 Personalización (logo y título del evento)
+
+Si reutilizas este proyecto para otro año o evento, solo necesitas tocar **dos cosas**: el logo y el `config.js`.
+
+### Cambiar el nombre del evento
+
+Edita **`config.js`** y modifica la variable `NOMBRE_EVENTO`:
+
+```javascript
+window.NOMBRE_EVENTO = "Graduación 2027 · IES Blanca Fernández Ochoa";
+```
+
+Este texto se aplica automáticamente en:
+- ✅ El título `<h1>` y la pestaña del navegador en `index.html`
+- ✅ La barra superior del panel en `admin.html`
+- ✅ La cabecera de cada entrada en el PDF imprimible
+
+No necesitas tocar ningún HTML.
+
+### Cambiar el logo
+
+El logo aparece en tres sitios: la página de inicio, el panel de administración y dentro de cada entrada del PDF.
+
+#### Opción A — Reemplazar el archivo (lo más sencillo)
+
+1. Sustituye el fichero **`blancalogo.png`** en la raíz del repositorio por la nueva imagen.
+2. Mantén el mismo nombre de archivo (`blancalogo.png`).
+3. Haz commit y push. Listo, no hay que tocar nada más.
+
+> 💡 Recomendación: usa una imagen cuadrada o casi cuadrada, en formato PNG con fondo transparente, de al menos 400×400 px para que se vea bien en el PDF.
+
+#### Opción B — Usar otro nombre de archivo o URL externa
+
+Si prefieres usar otro nombre (p. ej. `logo-nuevo.png`) o una URL externa:
+
+1. Sube la nueva imagen al repositorio.
+2. En **`config.js`**, añade la variable `LOGO_URL`:
+
+```javascript
+window.LOGO_URL = "logo-nuevo.png";           // ruta relativa
+// o bien:
+window.LOGO_URL = "https://ejemplo.com/mi-logo.png";  // URL externa
+```
+
+3. En los archivos HTML (`index.html`, `admin.html`, `scan.html`), busca las etiquetas `<img>` que referencian `blancalogo.png` y cámbialas:
+
+```html
+<!-- Antes -->
+<img src="blancalogo.png" .../>
+
+<!-- Después -->
+<img src="logo-nuevo.png" .../>
+```
+
+El PDF carga el logo automáticamente: primero mira `LOGO_BASE64`, luego `LOGO_URL`, y si no hay ninguno usa `blancalogo.png` como fallback.
+
+#### Opción C — Logo embebido en Base64 (sin fichero externo)
+
+Útil si tienes problemas de CORS con URLs externas o quieres que el PDF funcione sin red:
+
+1. Convierte tu imagen a Base64 (hay herramientas online como https://www.base64-image.de/).
+2. En **`config.js`**, añade:
+
+```javascript
+window.LOGO_BASE64 = "data:image/png;base64,iVBORw0KGgo...";
+```
+
+Esta opción tiene **prioridad máxima** sobre `LOGO_URL` y el fichero `blancalogo.png`.
+
+### Resumen rápido de prioridad del logo en el PDF
+
+| Prioridad | Variable en `config.js` | Descripción |
+|---|---|---|
+| 1️⃣ (máxima) | `window.LOGO_BASE64` | Data URL embebido en Base64 |
+| 2️⃣ | `window.LOGO_URL` | Ruta relativa o URL externa |
+| 3️⃣ (fallback) | *(ninguna)* | Carga `blancalogo.png` automáticamente |
 
 ---
 
@@ -108,7 +188,14 @@ window.firebaseConfig = {
   measurementId: "..."
 };
 
+// ─── Personalización ───
 window.NOMBRE_EVENTO = "Graduación 2026 · IES Blanca Fernández Ochoa";
+
+// (Opcional) Si no usas blancalogo.png, indica la ruta o URL del logo:
+// window.LOGO_URL = "mi-otro-logo.png";
+
+// (Opcional) Logo en Base64 (prioridad máxima):
+// window.LOGO_BASE64 = "data:image/png;base64,iVBORw0KGgo...";
 ```
 
 ### 6. Desplegar en GitHub Pages
@@ -146,7 +233,7 @@ https://iesblancafernandezochoa.github.io/graduacion/
 1. Abre https://iesblancafernandezochoa.github.io/graduacion/admin.html en el ordenador.
 2. Inicia sesión con el usuario admin que creaste.
 3. Indica el número de entradas que necesitas (p. ej. 250) y pulsa **Crear N entradas**.
-4. Pulsa 📄 **Descargar PDF imprimible** → genera un PDF A4 con 10 entradas por página, cada una con su QR y su código.
+4. Pulsa 📄 **Descargar PDF imprimible** → genera un PDF A4 con 10 entradas por página, cada una con su QR, el logo del instituto y el nombre del evento.
 5. Imprime y recorta. Reparte a las familias.
 
 ### El día del evento (puerta)
@@ -229,11 +316,12 @@ Para una graduación con ~300 entradas y unos cientos de escaneos en una noche, 
 [ ] Firestore Database creado (eur3)
 [ ] Reglas de Firestore publicadas
 [ ] config.js configurado (sin imports)
+[ ] Logo del instituto (blancalogo.png) en la raíz del repositorio
 [ ] GitHub Pages activado
 [ ] Dominio autorizado en Authentication
 [ ] Login funcionando
 [ ] Crear entradas de prueba
-[ ] Descargar PDF de prueba
+[ ] Descargar PDF de prueba (comprobar que aparece el logo)
 [ ] Escanear QR desde móvil
 [ ] Verificar detección de duplicados
 ```
@@ -241,3 +329,4 @@ Para una graduación con ~300 entradas y unos cientos de escaneos en una noche, 
 ---
 
 ¡Suerte con la graduación! 🎓🎉
+
