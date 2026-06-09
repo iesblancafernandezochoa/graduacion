@@ -9,4 +9,4 @@ window.firebaseConfig = {
   measurementId: "G-9S5DEFL193"
 };
 
-window.NOMBRE_EVENTO = "Graduación 4ºESO 19/06/2026 · IES Blanca Fernández Ochoa";
+window.NOMBRE_EVENTO = "Graduación 4ºESO 19/06/2026 ";
