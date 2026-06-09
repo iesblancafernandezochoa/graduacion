@@ -57,7 +57,7 @@
     <div class="card">
       <h2>Crear nuevas entradas</h2>
       <div class="toolbar">
-        <input id="cantidad" type="number" min="1" max="500" value="10" style="margin-bottom:0;" />
+        <input id="cantidad" type="number" min="1" max="2000" value="10" style="margin-bottom:0;" />
         <button id="btn-crear" class="btn">Crear N entradas</button>
       </div>
       <p class="muted">Se generan códigos únicos del tipo <code>ENT-XXXXXX</code> con numeración correlativa.</p>
@@ -182,7 +182,6 @@
     const lista = entradasCache
       .filter(e => {
         if (!filtro) return true;
-        // Buscar por código o por número
         const matchCodigo = e.id.includes(filtro);
         const matchNumero = e.numero && e.numero.toString().includes(filtro);
         return matchCodigo || matchNumero;
@@ -227,11 +226,13 @@
 
   $("filtro").addEventListener("input", pintarLista);
 
-  // ----------- Crear N entradas (con numeración correlativa) -----------
+  // =================================================================
+  //  Crear N entradas (numeración correlativa + control de lotes)
+  // =================================================================
   $("btn-crear").addEventListener("click", async () => {
     const n = parseInt($("cantidad").value, 10);
     if (!n || n < 1) return alert("Indica un número válido.");
-    if (n > 500) return alert("Máximo 500 por lote.");
+    if (n > 2000) return alert("Máximo 2000 por lote.");
 
     $("btn-crear").disabled = true;
     $("btn-crear").textContent = "Creando...";
@@ -244,21 +245,33 @@
         if (e.numero && e.numero > maxNumero) maxNumero = e.numero;
       });
 
-      const batch = writeBatch(db);
-      let creados = 0;
-      while (creados < n) {
+      // ★ Preparar todas las entradas antes de enviar
+      const nuevas = [];
+      while (nuevas.length < n) {
         const codigo = generarCodigo();
         if (existentes.has(codigo)) continue;
         existentes.add(codigo);
-        creados++;
-        batch.set(doc(col, codigo), {
-          usada: false,
-          usadaEn: null,
-          numero: maxNumero + creados,
-          creada: new Date().toISOString()
+        nuevas.push({
+          codigo,
+          data: {
+            usada: false,
+            usadaEn: null,
+            numero: maxNumero + nuevas.length + 1,
+            creada: new Date().toISOString()
+          }
         });
       }
-      await batch.commit();
+
+      // ★ Dividir en lotes de 500 (límite de Firestore writeBatch)
+      const BATCH_SIZE = 500;
+      for (let i = 0; i < nuevas.length; i += BATCH_SIZE) {
+        const trozo = nuevas.slice(i, i + BATCH_SIZE);
+        const batch = writeBatch(db);
+        trozo.forEach(e => batch.set(doc(col, e.codigo), e.data));
+        await batch.commit();
+        $("btn-crear").textContent = `Creando... ${Math.min(i + BATCH_SIZE, nuevas.length)}/${n}`;
+      }
+
     } catch (err) {
       alert("Error al crear: " + err.message);
       console.error(err);
@@ -268,21 +281,35 @@
     }
   });
 
-  // ----------- Borrar todo -----------
+  // =================================================================
+  //  Borrar todo (también con control de lotes)
+  // =================================================================
   $("btn-borrar-todo").addEventListener("click", async () => {
     if (!confirm(`¿Seguro que quieres borrar TODAS las ${entradasCache.length} entradas? Esta acción no se puede deshacer.`)) return;
     if (!confirm("Última confirmación. ¿Borrar todas las entradas?")) return;
-    const batch = writeBatch(db);
-    entradasCache.forEach(e => batch.delete(doc(col, e.id)));
-    await batch.commit();
+
+    const BATCH_SIZE = 500;
+    for (let i = 0; i < entradasCache.length; i += BATCH_SIZE) {
+      const trozo = entradasCache.slice(i, i + BATCH_SIZE);
+      const batch = writeBatch(db);
+      trozo.forEach(e => batch.delete(doc(col, e.id)));
+      await batch.commit();
+    }
   });
 
-  // ----------- Resetear (todas a no usada) -----------
+  // =================================================================
+  //  Resetear — todas a no usada (también con control de lotes)
+  // =================================================================
   $("btn-resetear").addEventListener("click", async () => {
     if (!confirm("¿Marcar TODAS las entradas como NO usadas? Útil si has hecho una prueba.")) return;
-    const batch = writeBatch(db);
-    entradasCache.forEach(e => batch.update(doc(col, e.id), { usada: false, usadaEn: null }));
-    await batch.commit();
+
+    const BATCH_SIZE = 500;
+    for (let i = 0; i < entradasCache.length; i += BATCH_SIZE) {
+      const trozo = entradasCache.slice(i, i + BATCH_SIZE);
+      const batch = writeBatch(db);
+      trozo.forEach(e => batch.update(doc(col, e.id), { usada: false, usadaEn: null }));
+      await batch.commit();
+    }
   });
 
   // ============================================================
@@ -342,15 +369,21 @@
           x, y, cellW, cellH, pad, evento, logoData,
           numero: ordenadas[i].numero
         });
+
+        // Progreso visual cada 50 entradas
+        if (i % 50 === 0) {
+          $("btn-pdf").textContent = `Generando PDF... ${i + 1}/${ordenadas.length}`;
+        }
       }
 
+      $("btn-pdf").textContent = "Guardando PDF...";
       pdf.save(`entradas_${(evento).replace(/\s+/g,'_').replace(/[^a-zA-Z0-9_áéíóúñÁÉÍÓÚÑ]/g,'').toLowerCase()}.pdf`);
     } catch (err) {
       alert("Error generando PDF: " + err.message);
       console.error(err);
     } finally {
       $("btn-pdf").disabled = false;
-      $("btn-pdf").textContent = "📄 Descargar PDF imprimible";
+      $("btn-pdf").textContent = "\uD83D\uDCC4 Descargar PDF imprimible";
     }
   });
 
