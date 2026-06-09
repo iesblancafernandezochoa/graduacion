@@ -11,10 +11,15 @@
 
 <!-- ======== LOGIN ======== -->
 <section id="vista-login" class="container" style="padding-top: 3rem;">
-  <div class="card">
+  <div class="card" style="text-align:center;">
+
+    <!-- LOGO EN LOGIN -->
+    " alt="Logo IES Blanca Fernández Ochoa"
+         style="width:100px; margin: 0 auto 1rem auto; display:block; border-radius:12px;" />
+
     <h1>Acceso administrador</h1>
     <p class="muted" style="margin-bottom:1rem;">Introduce tus credenciales para gestionar las entradas.</p>
-    <form id="form-login">
+    <form id="form-login" style="text-align:left;">
       <label for="email">Correo electrónico</label>
       <input id="email" type="email" autocomplete="username" required />
       <label for="password">Contraseña</label>
@@ -31,7 +36,11 @@
 <!-- ======== PANEL ADMIN ======== -->
 <section id="vista-admin" class="hidden">
   <header class="topbar">
-    <h1 id="evento-titulo">Admin · Entradas</h1>
+    <!-- LOGO EN TOPBAR -->
+    <div style="display:flex; align-items:center; gap:0.75rem;">
+      " alt="Logo" style="height:36px; border-radius:6px;" />
+      <h1 id="evento-titulo" style="margin:0;">Admin · Entradas</h1>
+    </div>
     <span><span id="user-email" class="user"></span> · <a href="#" id="btn-logout">Salir</a></span>
   </header>
 
@@ -274,7 +283,7 @@
 
       const evento = window.NOMBRE_EVENTO || "Graduación";
 
-      // --- Cargar logo: base64 tiene prioridad, luego URL, luego nada ---
+      // --- Cargar logo para el PDF desde blancalogo.png ---
       let logoData = null;
       if (window.LOGO_BASE64) {
         const img = new Image();
@@ -284,8 +293,10 @@
           img.src = window.LOGO_BASE64;
         });
         logoData = { dataURL: window.LOGO_BASE64, w: img.naturalWidth, h: img.naturalHeight };
-      } else if (window.LOGO_URL) {
-        logoData = await cargarLogoComoDataURL(window.LOGO_URL);
+      } else {
+        // Carga automática desde blancalogo.png si no hay LOGO_BASE64 ni LOGO_URL
+        const logoURL = window.LOGO_URL || "blancalogo.png";
+        logoData = await cargarLogoComoDataURL(logoURL);
       }
 
       // --- Medidas de la cuadrícula ---
@@ -408,7 +419,6 @@
   async function cargarLogoComoDataURL(url, maxPx = 400) {
     if (!url) return null;
     try {
-      // Intento 1: fetch directo
       const r = await fetch(url, { cache: "no-store" });
       if (!r.ok) throw new Error("fetch no ok");
       const blob = await r.blob();
@@ -432,7 +442,6 @@
     } catch (e) {
       console.warn('Fetch del logo falló, intentando img con crossOrigin...', e);
       try {
-        // Intento 2: img con crossOrigin
         const img = new Image();
         img.crossOrigin = "anonymous";
         await new Promise((res, rej) => {
