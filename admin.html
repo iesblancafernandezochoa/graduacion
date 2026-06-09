@@ -14,7 +14,7 @@
   <div class="card" style="text-align:center;">
 
     <!-- LOGO EN LOGIN -->
-    " alt="Logo IES Blanca Fernández Ochoa"
+    <img src="blancalogo.png" alt="Logo IES Blanca Fernández Ochoa"
          style="width:100px; margin: 0 auto 1rem auto; display:block; border-radius:12px;" />
 
     <h1>Acceso administrador</h1>
@@ -28,7 +28,7 @@
       <p id="login-error" class="muted" style="color:#f87171; margin-top:0.75rem;"></p>
     </form>
     <p class="muted" style="margin-top:1rem; text-align:center;">
-      <a href="index.html">← Volver</a>
+      <a href="index.html">&larr; Volver</a>
     </p>
   </div>
 </section>
@@ -38,10 +38,10 @@
   <header class="topbar">
     <!-- LOGO EN TOPBAR -->
     <div style="display:flex; align-items:center; gap:0.75rem;">
-      " alt="Logo" style="height:36px; border-radius:6px;" />
-      <h1 id="evento-titulo" style="margin:0;">Admin · Entradas</h1>
+      <img src="blancalogo.png" alt="Logo" style="height:36px; border-radius:6px;" />
+      <h1 id="evento-titulo" style="margin:0;">Admin &middot; Entradas</h1>
     </div>
-    <span><span id="user-email" class="user"></span> · <a href="#" id="btn-logout">Salir</a></span>
+    <span><span id="user-email" class="user"></span> &middot; <a href="#" id="btn-logout">Salir</a></span>
   </header>
 
   <div class="container">
@@ -60,16 +60,16 @@
         <input id="cantidad" type="number" min="1" max="500" value="10" style="margin-bottom:0;" />
         <button id="btn-crear" class="btn">Crear N entradas</button>
       </div>
-      <p class="muted">Se generan códigos únicos del tipo <code>ENT-XXXXXX</code>.</p>
+      <p class="muted">Se generan códigos únicos del tipo <code>ENT-XXXXXX</code> con numeración correlativa.</p>
     </div>
 
     <!-- Acciones masivas -->
     <div class="card">
       <h2>Acciones</h2>
       <div class="toolbar">
-        <button id="btn-pdf" class="btn btn-success">📄 Descargar PDF imprimible</button>
-        <button id="btn-resetear" class="btn btn-secondary">↺ Marcar todas como NO usadas</button>
-        <button id="btn-borrar-todo" class="btn btn-danger">🗑 Borrar TODAS las entradas</button>
+        <button id="btn-pdf" class="btn btn-success">&#x1F4C4; Descargar PDF imprimible</button>
+        <button id="btn-resetear" class="btn btn-secondary">&circlearrowleft; Marcar todas como NO usadas</button>
+        <button id="btn-borrar-todo" class="btn btn-danger">&#x1F5D1; Borrar TODAS las entradas</button>
       </div>
     </div>
 
@@ -77,7 +77,7 @@
     <div class="card">
       <h2>Entradas (<span id="lista-count">0</span>)</h2>
       <div class="toolbar">
-        <input id="filtro" type="text" placeholder="Filtrar por código..." style="margin-bottom:0;" />
+        <input id="filtro" type="text" placeholder="Filtrar por código o número..." style="margin-bottom:0;" />
       </div>
       <div id="lista" class="list"></div>
     </div>
@@ -179,11 +179,22 @@
 
   function pintarLista() {
     const filtro = $("filtro").value.trim().toUpperCase();
-    const lista = entradasCache.filter(e => e.id.includes(filtro));
+    const lista = entradasCache
+      .filter(e => {
+        if (!filtro) return true;
+        // Buscar por código o por número
+        const matchCodigo = e.id.includes(filtro);
+        const matchNumero = e.numero && e.numero.toString().includes(filtro);
+        return matchCodigo || matchNumero;
+      })
+      .sort((a, b) => (a.numero || 0) - (b.numero || 0));
+
     $("lista-count").textContent = lista.length;
     $("lista").innerHTML = lista.map(e => `
       <div class="list-item">
-        <span class="codigo">${e.id}</span>
+        <span class="codigo">
+          ${e.numero ? '<strong>#' + e.numero + '</strong> &middot; ' : ''}${e.id}
+        </span>
         <span class="${e.usada ? 'badge badge-used' : 'badge badge-ok'}">
           ${e.usada ? 'Usada' : 'Disponible'}
         </span>
@@ -191,7 +202,7 @@
           <button class="btn btn-secondary" data-toggle="${e.id}" style="padding:0.4rem 0.6rem; font-size:0.8rem;">
             ${e.usada ? 'Reactivar' : 'Marcar usada'}
           </button>
-          <button class="btn btn-danger" data-del="${e.id}" style="padding:0.4rem 0.6rem; font-size:0.8rem;">✕</button>
+          <button class="btn btn-danger" data-del="${e.id}" style="padding:0.4rem 0.6rem; font-size:0.8rem;">&times;</button>
         </span>
       </div>
     `).join("");
@@ -216,7 +227,7 @@
 
   $("filtro").addEventListener("input", pintarLista);
 
-  // ----------- Crear N entradas -----------
+  // ----------- Crear N entradas (con numeración correlativa) -----------
   $("btn-crear").addEventListener("click", async () => {
     const n = parseInt($("cantidad").value, 10);
     if (!n || n < 1) return alert("Indica un número válido.");
@@ -226,18 +237,26 @@
     $("btn-crear").textContent = "Creando...";
     try {
       const existentes = new Set(entradasCache.map(e => e.id));
+
+      // ★ Calcular el número más alto que ya existe
+      let maxNumero = 0;
+      entradasCache.forEach(e => {
+        if (e.numero && e.numero > maxNumero) maxNumero = e.numero;
+      });
+
       const batch = writeBatch(db);
       let creados = 0;
       while (creados < n) {
         const codigo = generarCodigo();
         if (existentes.has(codigo)) continue;
         existentes.add(codigo);
+        creados++;
         batch.set(doc(col, codigo), {
           usada: false,
           usadaEn: null,
+          numero: maxNumero + creados,
           creada: new Date().toISOString()
         });
-        creados++;
       }
       await batch.commit();
     } catch (err) {
@@ -294,7 +313,6 @@
         });
         logoData = { dataURL: window.LOGO_BASE64, w: img.naturalWidth, h: img.naturalHeight };
       } else {
-        // Carga automática desde blancalogo.png si no hay LOGO_BASE64 ni LOGO_URL
         const logoURL = window.LOGO_URL || "blancalogo.png";
         logoData = await cargarLogoComoDataURL(logoURL);
       }
@@ -302,12 +320,13 @@
       // --- Medidas de la cuadrícula ---
       const pageW = 210, pageH = 297;
       const margin = 8;
-      const cols = 2, rows = 5;                       // 10 por página
-      const cellW = (pageW - 2 * margin) / cols;      // ~97mm
-      const cellH = (pageH - 2 * margin) / rows;      // ~56.2mm
-      const pad = 3;                                   // padding interno
+      const cols = 2, rows = 5;
+      const cellW = (pageW - 2 * margin) / cols;
+      const cellH = (pageH - 2 * margin) / rows;
+      const pad = 3;
 
-      const ordenadas = [...entradasCache].sort((a, b) => a.id.localeCompare(b.id));
+      // ★ Ordenar por número correlativo
+      const ordenadas = [...entradasCache].sort((a, b) => (a.numero || 0) - (b.numero || 0));
       const perPage = cols * rows;
 
       for (let i = 0; i < ordenadas.length; i++) {
@@ -320,7 +339,8 @@
         const y = margin + r * cellH;
 
         await dibujarCeldaEntrada(pdf, ordenadas[i].id, {
-          x, y, cellW, cellH, pad, evento, logoData
+          x, y, cellW, cellH, pad, evento, logoData,
+          numero: ordenadas[i].numero
         });
       }
 
@@ -338,7 +358,7 @@
   //  Dibuja UNA celda de entrada compacta (~97mm × ~56mm)
   // ============================================================
   async function dibujarCeldaEntrada(pdf, codigo, opt) {
-    const { x, y, cellW, cellH, pad, evento, logoData } = opt;
+    const { x, y, cellW, cellH, pad, evento, logoData, numero } = opt;
 
     // --- Borde discontinuo para recortar ---
     pdf.setDrawColor(180, 180, 180);
@@ -353,7 +373,7 @@
     const iw = cellW - 2 * pad;
     const ih = cellH - 2 * pad;
 
-    // ~~~ FILA SUPERIOR: Logo + Nombre evento (~14mm) ~~~
+    // ~~~ FILA SUPERIOR: Logo + Nombre evento + Nº (~14mm) ~~~
     const headerH = 14;
     let logoEndX = ix;
 
@@ -371,10 +391,22 @@
     pdf.setFont("helvetica", "bold");
     pdf.setFontSize(7.5);
     pdf.setTextColor(40, 60, 110);
-    const maxTextW = iw - (logoEndX - ix) - 2;
+    const maxTextW = iw - (logoEndX - ix) - 20;
     const lineas = pdf.splitTextToSize(evento, maxTextW);
     const textoY = iy + headerH / 2 - (lineas.length * 3) / 2 + 3;
     pdf.text(lineas, logoEndX + 1, textoY);
+
+    // ★ Número de entrada (esquina superior derecha de la celda)
+    if (numero) {
+      pdf.setFont("helvetica", "bold");
+      pdf.setFontSize(14);
+      pdf.setTextColor(40, 60, 110);
+      pdf.text("n\u00BA " + numero, ix + iw - 2, iy + 5, { align: "right" });
+      pdf.setFontSize(5.5);
+      pdf.setFont("helvetica", "normal");
+      pdf.setTextColor(120, 120, 120);
+      pdf.text("ENTRADA", ix + iw - 2, iy + 9, { align: "right" });
+    }
 
     // Línea separadora
     const sepY = iy + headerH;
@@ -392,8 +424,8 @@
 
     // Código debajo del QR
     pdf.setFont("courier", "bold");
-    pdf.setFontSize(10);
-    pdf.setTextColor(40, 60, 110);
+    pdf.setFontSize(9);
+    pdf.setTextColor(100, 100, 100);
     pdf.text(codigo, ix + iw / 2, qrY + qrSize + 4, { align: "center" });
 
     // ~~~ PIE: "Una entrada, una persona" ~~~
@@ -401,7 +433,7 @@
     pdf.setFont("helvetica", "normal");
     pdf.setFontSize(5.5);
     pdf.setTextColor(140, 140, 140);
-    pdf.text("Una entrada, una persona · Presenta este código al entrar", ix + iw / 2, footY, { align: "center" });
+    pdf.text("Una entrada, una persona \u00B7 Presenta este c\u00F3digo al entrar", ix + iw / 2, footY, { align: "center" });
   }
 
   // ============================================================
